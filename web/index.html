@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PageChat</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --own-bg: #2563eb;
+      --own-text: #ffffff;
+      --other-bg: #f1f5f9;
+      --other-text: #0f172a;
+      --online: #22c55e;
+      --offline: #ef4444;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--primary);
+    }
+
+    .room-badge {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg);
+      padding: 4px 10px;
+      border-radius: 20px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--offline);
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: var(--online); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ── Chat Area ── */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-container::-webkit-scrollbar { width: 6px; }
+    .chat-container::-webkit-scrollbar-track { background: transparent; }
+    .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .msg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .msg-group.own { align-items: flex-end; }
+    .msg-group.other { align-items: flex-start; }
+
+    .msg-author {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 0 8px;
+      margin-bottom: 2px;
+    }
+
+    .msg-bubble {
+      max-width: 520px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      box-shadow: var(--shadow);
+    }
+
+    .msg-group.own .msg-bubble {
+      background: var(--own-bg);
+      color: var(--own-text);
+      border-radius: var(--radius) var(--radius) 4px var(--radius);
+    }
+
+    .msg-group.other .msg-bubble {
+      background: var(--surface);
+      color: var(--other-text);
+      border-radius: var(--radius) var(--radius) var(--radius) 4px;
+    }
+
+    .msg-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 0 8px;
+      margin-top: 2px;
+    }
+    .msg-group.own .msg-time { text-align: right; }
+
+    .system-msg {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 8px 0;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      opacity: 0.4;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ── Input Area ── */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      box-shadow: 0 -1px 3px rgba(0,0,0,0.04);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .input-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      background: var(--bg);
+    }
+
+    .input-row input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .send-btn {
+      padding: 12px 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .send-btn:hover { background: var(--primary-hover); }
+    .send-btn:active { transform: scale(0.97); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Username Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 32px;
+      width: 380px;
+      max-width: 90vw;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+    }
+
+    .modal h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--primary);
+    }
+
+    .modal p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 16px;
+      text-align: center;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .modal input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .modal button {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .modal button:hover { background: var(--primary-hover); }
+
+    /* ── Typing / Connection indicator ── */
+    .reconnecting-banner {
+      background: #fef3c7;
+      color: #92400e;
+      text-align: center;
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+    }
+
+    .reconnecting-banner.visible { display: block; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .header { padding: 12px 16px; }
+      .chat-container { padding: 16px; }
+      .input-area { padding: 12px 16px; }
+      .room-badge { max-width: 150px; }
+      .msg-bubble { max-width: 85vw; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Username Modal -->
+  <div class="modal-overlay" id="usernameModal">
+    <div class="modal">
+      <h2>PageChat</h2>
+      <p>Choose a name to start chatting with others on this page.</p>
+      <input type="text" id="usernameInput" placeholder="Your name" maxlength="30" autocomplete="off" autofocus>
+      <button id="usernameBtn">Join Chat</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">PageChat</span>
+      <span class="room-badge" id="roomBadge">—</span>
+    </div>
+    <div class="header-right">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </div>
+
+  <!-- Reconnecting Banner -->
+  <div class="reconnecting-banner" id="reconnectBanner">Reconnecting...</div>
+
+  <!-- Chat Messages -->
+  <div class="chat-container" id="chatContainer">
+    <div class="empty-state" id="emptyState">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+      </svg>
+      <p>No messages yet. Say something!</p>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" maxlength="2000" disabled>
+      <button class="send-btn" id="sendBtn" disabled>Send</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ── Config ──
+      const RECONNECT_BASE = 1000;
+      const RECONNECT_MAX  = 30000;
+
+      // ── State ──
+      let ws = null;
+      let username = localStorage.getItem('pagechat_username') || '';
+      let reconnectDelay = RECONNECT_BASE;
+      let lastAuthor = null;
+
+      // ── Elements ──
+      const modal       = document.getElementById('usernameModal');
+      const usernameIn  = document.getElementById('usernameInput');
+      const usernameBtn = document.getElementById('usernameBtn');
+      const statusDot   = document.getElementById('statusDot');
+      const statusText  = document.getElementById('statusText');
+      const roomBadge   = document.getElementById('roomBadge');
+      const chat        = document.getElementById('chatContainer');
+      const emptyState  = document.getElementById('emptyState');
+      const msgInput    = document.getElementById('messageInput');
+      const sendBtn     = document.getElementById('sendBtn');
+      const reconnBanner= document.getElementById('reconnectBanner');
+
+      // ── Room ──
+      const params  = new URLSearchParams(location.search);
+      const website = params.get('website') || location.href;
+      roomBadge.textContent = website;
+      roomBadge.title = website;
+
+      // ── Username Flow ──
+      if (username) {
+        modal.classList.add('hidden');
+        init();
+      }
+
+      usernameBtn.addEventListener('click', submitUsername);
+      usernameIn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitUsername();
+      });
+
+      function submitUsername() {
+        const name = usernameIn.value.trim();
+        if (!name) return;
+        username = name;
+        localStorage.setItem('pagechat_username', username);
+        modal.classList.add('hidden');
+        init();
+      }
+
+      // ── Init ──
+      function init() {
+        loadHistory();
+        connect();
+        msgInput.disabled = false;
+        msgInput.focus();
+      }
+
+      // ── History ──
+      async function loadHistory() {
+        try {
+          const res = await fetch(`/api/messages?website=${encodeURIComponent(website)}`);
+          const msgs = await res.json();
+          if (msgs && msgs.length) {
+            msgs.forEach(msg => renderMessage(msg));
+            scrollToBottom();
+          }
+        } catch (e) {
+          console.warn('Failed to load history:', e);
+        }
+      }
+
+      // ── WebSocket ──
+      function connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws?website=${encodeURIComponent(website)}`);
+
+        ws.onopen = () => {
+          statusDot.classList.add('connected');
+          statusText.textContent = 'Connected';
+          reconnBanner.classList.remove('visible');
+          sendBtn.disabled = false;
+          reconnectDelay = RECONNECT_BASE;
+        };
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          renderMessage(msg);
+          scrollToBottom();
+        };
+
+        ws.onclose = () => {
+          statusDot.classList.remove('connected');
+          statusText.textContent = 'Disconnected';
+          sendBtn.disabled = true;
+          scheduleReconnect();
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+      }
+
+      function scheduleReconnect() {
+        reconnBanner.classList.add('visible');
+        statusText.textContent = 'Reconnecting...';
+        setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
+          connect();
+        }, reconnectDelay);
+      }
+
+      // ── Send ──
+      function send() {
+        const content = msgInput.value.trim();
+        if (!content || !ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ username, content }));
+        msgInput.value = '';
+        msgInput.focus();
+      }
+
+      sendBtn.addEventListener('click', send);
+      msgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          send();
+        }
+      });
+
+      // ── Render ──
+      function renderMessage(msg) {
+        emptyState.style.display = 'none';
+
+        const isOwn = msg.username === username;
+        const isSameAuthor = lastAuthor === msg.username;
+
+        const group = document.createElement('div');
+        group.className = `msg-group ${isOwn ? 'own' : 'other'}`;
+
+        if (!isSameAuthor) {
+          const author = document.createElement('div');
+          author.className = 'msg-author';
+          author.textContent = msg.username;
+          group.appendChild(author);
+        }
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.textContent = msg.content;
+        group.appendChild(bubble);
+
+        if (msg.timestamp) {
+          const time = document.createElement('div');
+          time.className = 'msg-time';
+          time.textContent = formatTime(msg.timestamp);
+          group.appendChild(time);
+        }
+
+        chat.appendChild(group);
+        lastAuthor = msg.username;
+      }
+
+      function formatTime(ts) {
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function scrollToBottom() {
+        requestAnimationFrame(() => {
+          chat.scrollTop = chat.scrollHeight;
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
