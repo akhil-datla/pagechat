@@ -85,7 +85,9 @@ func TestWebSocketRoomIsolation(t *testing.T) {
 	}
 
 	// c2 should NOT get the message (different room).
-	c2.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if err := c2.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
 	var got2 Message
 	err := c2.ReadJSON(&got2)
 	if err == nil {
@@ -99,11 +101,15 @@ func TestMessagesEndpoint(t *testing.T) {
 	conn := wsConnect(t, ts, "test.com")
 
 	// Send a message.
-	conn.WriteJSON(map[string]string{"username": "bob", "content": "stored"})
+	if err := conn.WriteJSON(map[string]string{"username": "bob", "content": "stored"}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
 
 	// Wait for broadcast to complete.
 	var discard Message
-	conn.ReadJSON(&discard)
+	if err := conn.ReadJSON(&discard); err != nil {
+		t.Fatalf("read: %v", err)
+	}
 
 	// Fetch via REST.
 	resp, err := http.Get(ts.URL + "/api/messages?website=test.com")
@@ -154,7 +160,9 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 
 	var body map[string]string
-	json.NewDecoder(resp.Body).Decode(&body)
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if body["status"] != "ok" {
 		t.Errorf("expected status ok, got %q", body["status"])
 	}
@@ -170,7 +178,9 @@ func TestStatsEndpoint(t *testing.T) {
 	defer resp.Body.Close()
 
 	var stats Stats
-	json.NewDecoder(resp.Body).Decode(&stats)
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 
 	if stats.ActiveRooms != 0 || stats.ActiveClients != 0 {
 		t.Errorf("expected empty stats, got %+v", stats)
